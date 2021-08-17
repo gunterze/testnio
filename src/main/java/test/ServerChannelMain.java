@@ -38,6 +38,7 @@ public class ServerChannelMain {
     }
 
     public static void main(String[] args) {
+        ByteBuffer buf4 = ByteBuffer.allocate(4);
         Supplier<ByteBuffer> supplier =
                 (args.length > 0 ? ByteBufferSource.valueOf(args[0]) : ByteBufferSource.SHARE_HEAP_64768).supplier;
         try (ServerSocketChannel server = ServerSocketChannel.open()) {
@@ -46,24 +47,19 @@ public class ServerChannelMain {
             server.bind(new InetSocketAddress(PORT));
             for (; ; ) {
                 try (SocketChannel s = server.accept()) {
-                    ByteBuffer buf = supplier.get();
-                    buf.clear();
-                    buf.limit(4);
-                    while (s.read(buf) > 0) {
-                        int length = (buf.get(0) & 255)
-                                | (buf.get(1) & 255) << 8
-                                | (buf.get(2) & 255) << 16
-                                | (buf.get(3) & 255) << 32;
+                    buf4.clear();
+                    while (s.read(buf4) == 4) {
+                        int length = (buf4.get(0) & 255)
+                                | (buf4.get(1) & 255) << 8
+                                | (buf4.get(2) & 255) << 16
+                                | (buf4.get(3) & 255) << 32;
                         if (PATH.isPresent()) {
                             try (SeekableByteChannel out = Files.newByteChannel(PATH.get())) {
-                                transfer(s, length, out, buf, supplier);
+                                transfer(s, length, out, supplier);
                             }
                         } else {
-                            transfer(s, length, null, buf, supplier);
+                            transfer(s, length, null, supplier);
                         }
-                        buf = supplier.get();
-                        buf.clear();
-                        buf.limit(4);
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -74,10 +70,10 @@ public class ServerChannelMain {
         }
     }
 
-    private static void transfer(SocketChannel src, int length, SeekableByteChannel dst, ByteBuffer buf,
-                                 Supplier<ByteBuffer> supplier)
+    private static void transfer(SocketChannel src, int length, SeekableByteChannel dst, Supplier<ByteBuffer> supplier)
             throws IOException {
-        for (;;) {
+        while (length > 0) {
+            ByteBuffer buf = supplier.get();
             buf.clear();
             if (length < buf.capacity())
                 buf.limit(length);
@@ -85,8 +81,6 @@ public class ServerChannelMain {
             length -= buf.position();
             buf.flip();
             if (dst != null) dst.write(buf);
-            if (length == 0) break;
-            buf = supplier.get();
         }
     }
 }
