@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class FileChannelTest {
     static final Path PATH = Path.of(System.getProperty("ifile", "/tmp/ifile"));
-    static final String HOSTNAME = System.getProperty("hostname", "localhost");
+    static final String HOST = System.getProperty("host", "localhost");
     static final int PORT = Integer.parseInt(System.getProperty("port", "6666"));
     static final Optional<Integer> SO_SNDBUF = Optional.ofNullable(System.getProperty("SO_SNDBUF"))
             .map(Integer::valueOf);
@@ -44,25 +44,28 @@ public class FileChannelTest {
 
     @AfterAll
     static void afterAll() throws IOException {
-        float size = Files.size(PATH);
+        long size = Files.size(PATH);
+        float scale = 1000f / size;
         System.out.println("test, rmin, ravg, rmax, wmin, wavg, wmax");
         for (ByteArraySource value : ByteArraySource.values()) {
-            System.out.printf("%s, %f, %f, %f, %f, %f, %f%n", value,
-                    size / value.readStat.getMax(),
-                    size / value.readStat.getAverage(),
-                    size / value.readStat.getMin(),
-                    size / value.writeStat.getMax(),
-                    size / value.writeStat.getAverage(),
-                    size / value.writeStat.getMin());
+            if (value.readStat != null && value.writeStat != null)
+                System.out.printf("%s [ms/GB], %f, %f, %f, %f, %f, %f%n", value,
+                        value.readStat.getMin() * scale,
+                        value.readStat.getAverage() * scale,
+                        value.readStat.getMax() * scale,
+                        value.writeStat.getMin() * scale,
+                        value.writeStat.getAverage() * scale,
+                        value.writeStat.getMax() * scale);
         }
         for (ByteBufferSource value : ByteBufferSource.values()) {
-            System.out.printf("%s, %f, %f, %f, %f, %f, %f%n", value,
-                    size / value.readStat.getMax(),
-                    size / value.readStat.getAverage(),
-                    size / value.readStat.getMin(),
-                    size / value.writeStat.getMax(),
-                    size / value.writeStat.getAverage(),
-                    size / value.writeStat.getMin());
+            if (value.readStat != null && value.writeStat != null)
+                System.out.printf("%s [ms/GB], %f, %f, %f, %f, %f, %f%n", value,
+                        value.readStat.getMin() * scale,
+                        value.readStat.getAverage() * scale,
+                        value.readStat.getMax() * scale,
+                        value.writeStat.getMin() * scale,
+                        value.writeStat.getAverage() * scale,
+                        value.writeStat.getMax() * scale);
         }
     }
 
@@ -125,7 +128,7 @@ public class FileChannelTest {
             if (SO_SNDBUF.isPresent())
                 s.setOption(StandardSocketOptions.SO_SNDBUF, SO_SNDBUF.get());
             s.setOption(StandardSocketOptions.TCP_NODELAY, TCP_NODELAY);
-            s.connect(new InetSocketAddress(HOSTNAME, PORT));
+            s.connect(new InetSocketAddress(HOST, PORT));
             OutputStream out = s.getOutputStream();
             for (int i = 0; i < n; i++) {
                 testByteArray(out, action);
@@ -142,7 +145,7 @@ public class FileChannelTest {
             if (SO_SNDBUF.isPresent())
                 out.setOption(StandardSocketOptions.SO_SNDBUF, SO_SNDBUF.get());
             out.setOption(StandardSocketOptions.TCP_NODELAY, TCP_NODELAY);
-            out.connect(new InetSocketAddress(HOSTNAME, PORT));
+            out.connect(new InetSocketAddress(HOST, PORT));
             for (int i = 0; i < n; i++) {
                 testByteBuffer(out, action);
             }

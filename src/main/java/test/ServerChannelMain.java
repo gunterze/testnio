@@ -48,7 +48,9 @@ public class ServerChannelMain {
             for (; ; ) {
                 try (SocketChannel s = server.accept()) {
                     buf4.clear();
+                    int count = 0;
                     while (s.read(buf4) == 4) {
+                        count++;
                         int length = (buf4.get(0) & 255)
                                 | (buf4.get(1) & 255) << 8
                                 | (buf4.get(2) & 255) << 16
@@ -60,7 +62,9 @@ public class ServerChannelMain {
                         } else {
                             transfer(s, length, null, supplier);
                         }
+                        buf4.clear();
                     }
+                    System.out.printf("Received %d objects%n", count);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
